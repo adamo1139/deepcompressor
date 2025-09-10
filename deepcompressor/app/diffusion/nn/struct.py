@@ -37,6 +37,11 @@ from diffusers.models.transformers.transformer_flux import (
 )
 from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
 from diffusers import QwenImageTransformer2DModel
+try:
+    # Newer diffusers expose dedicated QwenImage block class
+    from diffusers.models.transformers.transformer_qwenimage import QwenImageTransformerBlock as _QwenImageTransformerBlock
+except Exception:  # pragma: no cover
+    _QwenImageTransformerBlock = None
 from diffusers.models.unets.unet_2d import UNet2DModel
 from diffusers.models.unets.unet_2d_blocks import (
     CrossAttnDownBlock2D,
@@ -2057,6 +2062,8 @@ DiffusionFeedForwardStruct.register_factory(
 )
 
 DiffusionTransformerBlockStruct.register_factory(DIT_BLOCK_CLS, DiffusionTransformerBlockStruct._default_construct)
+if _QwenImageTransformerBlock is not None:
+    DiffusionTransformerBlockStruct.register_factory(_QwenImageTransformerBlock, DiffusionTransformerBlockStruct._default_construct)
 
 UNetBlockStruct.register_factory(UNET_BLOCK_CLS, UNetBlockStruct._default_construct)
 
