@@ -1805,7 +1805,7 @@ class FluxStruct(DiTStruct):
     # region child modules
     input_embed: nn.Linear
     time_embed: CombinedTimestepGuidanceTextProjEmbeddings | CombinedTimestepTextProjEmbeddings
-    text_embed: nn.Linear
+    text_embed: nn.Linear | None
     single_transformer_blocks: nn.ModuleList = field(repr=False)
     # endregion
     # region relative names
@@ -2019,7 +2019,7 @@ class QwenImageStruct(DiTStruct):
         elif hasattr(module, "caption_projection"):
             text_embed, text_embed_rname = module.caption_projection, "caption_projection"
         else:
-            raise AttributeError("QwenImageTransformer2DModel missing text embed module")
+            text_embed, text_embed_rname = None, ""
         # blocks
         transformer_blocks = getattr(module, "transformer_blocks")
         transformer_blocks_rname = "transformer_blocks"
