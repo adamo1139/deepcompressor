@@ -5,9 +5,12 @@ set -euo pipefail
 
 OUTDIR=${1:-test-qwen-image-edit-nvfp4}
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 python -m deepcompressor.app.diffusion.ptq \
-  /data/tianyu/deepcompressor/examples/diffusion/configs/model/qwen-image-edit.yaml \
-  /data/tianyu/deepcompressor/examples/diffusion/configs/svdquant/nvfp4.yaml \
-  --output-dirname ${OUTDIR}
+  "$REPO_ROOT/examples/diffusion/configs/model/qwen-image-edit.yaml" \
+  "$REPO_ROOT/examples/diffusion/configs/svdquant/nvfp4.yaml" \
+  --output-dirname "${OUTDIR}"
 
 
