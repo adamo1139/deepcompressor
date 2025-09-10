@@ -1992,6 +1992,42 @@ class QwenImageStruct(DiTStruct):
         if isinstance(module, QwenImageEditPipeline):
             module = module.transformer
         assert isinstance(module, QwenImageTransformer2DModel)
+        # Resolve attribute names dynamically across diffusers versions
+        # input embedding
+        if hasattr(module, "x_embedder"):
+            input_embed, input_embed_rname = module.x_embedder, "x_embedder"
+        elif hasattr(module, "patch_embed"):
+            input_embed, input_embed_rname = module.patch_embed, "patch_embed"
+        elif hasattr(module, "pos_embed"):
+            input_embed, input_embed_rname = module.pos_embed, "pos_embed"
+        else:
+            raise AttributeError("QwenImageTransformer2DModel missing input embed module")
+        # time embedding
+        if hasattr(module, "time_text_embed"):
+            time_embed, time_embed_rname = module.time_text_embed, "time_text_embed"
+        elif hasattr(module, "time_embed"):
+            time_embed, time_embed_rname = module.time_embed, "time_embed"
+        elif hasattr(module, "adaln_single"):
+            time_embed, time_embed_rname = module.adaln_single, "adaln_single"
+        else:
+            raise AttributeError("QwenImageTransformer2DModel missing time embed module")
+        # text embedding / context
+        if hasattr(module, "context_embedder"):
+            text_embed, text_embed_rname = module.context_embedder, "context_embedder"
+        elif hasattr(module, "text_embed"):
+            text_embed, text_embed_rname = module.text_embed, "text_embed"
+        elif hasattr(module, "caption_projection"):
+            text_embed, text_embed_rname = module.caption_projection, "caption_projection"
+        else:
+            raise AttributeError("QwenImageTransformer2DModel missing text embed module")
+        # blocks
+        transformer_blocks = getattr(module, "transformer_blocks")
+        transformer_blocks_rname = "transformer_blocks"
+        # norm/proj out (optional)
+        norm_out = getattr(module, "norm_out", None)
+        proj_out = getattr(module, "proj_out", None)
+        norm_out_rname = "norm_out" if norm_out is not None else ""
+        proj_out_rname = "proj_out" if proj_out is not None else ""
         return QwenImageStruct(
             module=module,
             parent=parent,
@@ -1999,12 +2035,18 @@ class QwenImageStruct(DiTStruct):
             idx=idx,
             rname=rname,
             rkey=rkey,
-            input_embed=module.patch_embed,
-            time_embed=module.time_embed,
-            text_embed=module.text_embed,
-            transformer_blocks=module.transformer_blocks,
-            norm_out=module.norm_out,
-            proj_out=module.proj_out,
+            input_embed=input_embed,
+            time_embed=time_embed,
+            text_embed=text_embed,
+            transformer_blocks=transformer_blocks,
+            norm_out=norm_out,
+            proj_out=proj_out,
+            input_embed_rname=input_embed_rname,
+            time_embed_rname=time_embed_rname,
+            text_embed_rname=text_embed_rname,
+            transformer_blocks_rname=transformer_blocks_rname,
+            norm_out_rname=norm_out_rname,
+            proj_out_rname=proj_out_rname,
         )
 
 
