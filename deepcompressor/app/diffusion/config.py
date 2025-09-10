@@ -65,6 +65,7 @@ class DiffusionPtqRunConfig:
     eval: DiffusionEvalConfig
     quant: DiffusionQuantConfig = field(metadata={omniconfig.ARGPARSE_KWARGS: {"prefix": ""}})
     text: LlmQuantConfig | None = None
+    vae: DiffusionQuantConfig | None = None
     text_cache: LlmCacheConfig = field(default_factory=LlmCacheConfig)
     seed: int = 12345
     skip_gen: bool = False

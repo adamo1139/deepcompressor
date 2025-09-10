@@ -36,6 +36,7 @@ from diffusers.models.transformers.transformer_flux import (
     FluxTransformerBlock,
 )
 from diffusers.models.transformers.transformer_sd3 import SD3Transformer2DModel
+from diffusers import QwenImageTransformer2DModel
 from diffusers.models.unets.unet_2d import UNet2DModel
 from diffusers.models.unets.unet_2d_blocks import (
     CrossAttnDownBlock2D,
@@ -57,6 +58,7 @@ from diffusers.pipelines import (
     StableDiffusionPipeline,
     StableDiffusionXLPipeline,
 )
+from diffusers.pipelines import QwenImageEditPipeline
 
 from deepcompressor.nn.patch.conv import ConcatConv2d, ShiftedConv2d
 from deepcompressor.nn.patch.linear import ConcatLinear, ShiftedLinear
@@ -100,6 +102,7 @@ DIT_CLS = tp.Union[
     SD3Transformer2DModel,
     FluxTransformer2DModel,
     SanaTransformer2DModel,
+    QwenImageTransformer2DModel,
 ]
 UNET_CLS = tp.Union[UNet2DModel, UNet2DConditionModel]
 MODEL_CLS = tp.Union[DIT_CLS, UNET_CLS]
@@ -112,6 +115,7 @@ DIT_PIPELINE_CLS = tp.Union[
     FluxControlPipeline,
     FluxFillPipeline,
     SanaPipeline,
+    QwenImageEditPipeline,
 ]
 PIPELINE_CLS = tp.Union[UNET_PIPELINE_CLS, DIT_PIPELINE_CLS]
 
@@ -1696,6 +1700,8 @@ class DiTStruct(DiffusionModelStruct, DiffusionTransformerStruct):
             module = module.transformer
         if isinstance(module, FluxTransformer2DModel):
             return FluxStruct.construct(module, parent=parent, fname=fname, rname=rname, rkey=rkey, idx=idx, **kwargs)
+        elif isinstance(module, QwenImageTransformer2DModel):
+            return QwenImageStruct.construct(module, parent=parent, fname=fname, rname=rname, rkey=rkey, idx=idx, **kwargs)
         else:
             if isinstance(module, PixArtTransformer2DModel):
                 input_embed, input_embed_rname = module.pos_embed, "pos_embed"
@@ -1946,6 +1952,62 @@ class FluxStruct(DiTStruct):
         return {k: v for k, v in key_map.items() if v}
 
 
+@dataclass(kw_only=True)
+class QwenImageStruct(DiTStruct):
+    """Structure for Qwen-Image transformer model."""
+
+    transformer_block_struct_cls: tp.ClassVar[type[DiffusionTransformerBlockStruct]] = (
+        DiffusionTransformerBlockStruct
+    )
+
+    module: QwenImageTransformer2DModel = field(repr=False, kw_only=False)
+
+    # Child modules
+    input_embed: PatchEmbed
+    time_embed: AdaLayerNormSingle | CombinedTimestepTextProjEmbeddings | TimestepEmbedding
+    text_embed: nn.Linear
+    transformer_blocks: nn.ModuleList = field(repr=False)
+    norm_out: nn.LayerNorm | AdaLayerNormContinuous | None
+    proj_out: nn.Linear
+
+    # Relative names
+    input_embed_rname: str = "patch_embed"
+    time_embed_rname: str = "time_embed"
+    text_embed_rname: str = "text_embed"
+    transformer_blocks_rname: str = "transformer_blocks"
+    norm_out_rname: str = "norm_out"
+    proj_out_rname: str = "proj_out"
+
+    @staticmethod
+    def _default_construct(
+        module: tp.Union[QwenImageEditPipeline, QwenImageTransformer2DModel],
+        /,
+        parent: tp.Optional[BaseModuleStruct] = None,
+        fname: str = "",
+        rname: str = "",
+        rkey: str = "",
+        idx: int = 0,
+        **kwargs,
+    ) -> "QwenImageStruct":
+        if isinstance(module, QwenImageEditPipeline):
+            module = module.transformer
+        assert isinstance(module, QwenImageTransformer2DModel)
+        return QwenImageStruct(
+            module=module,
+            parent=parent,
+            fname=fname,
+            idx=idx,
+            rname=rname,
+            rkey=rkey,
+            input_embed=module.patch_embed,
+            time_embed=module.time_embed,
+            text_embed=module.text_embed,
+            transformer_blocks=module.transformer_blocks,
+            norm_out=module.norm_out,
+            proj_out=module.proj_out,
+        )
+
+
 DiffusionAttentionStruct.register_factory(Attention, DiffusionAttentionStruct._default_construct)
 
 DiffusionFeedForwardStruct.register_factory(
@@ -1960,6 +2022,10 @@ UNetStruct.register_factory(tp.Union[UNET_PIPELINE_CLS, UNET_CLS], UNetStruct._d
 
 FluxStruct.register_factory(
     tp.Union[FluxPipeline, FluxControlPipeline, FluxTransformer2DModel], FluxStruct._default_construct
+)
+
+QwenImageStruct.register_factory(
+    tp.Union[QwenImageEditPipeline, QwenImageTransformer2DModel], QwenImageStruct._default_construct
 )
 
 DiTStruct.register_factory(tp.Union[DIT_PIPELINE_CLS, DIT_CLS], DiTStruct._default_construct)

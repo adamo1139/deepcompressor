@@ -351,6 +351,20 @@ def main(config: DiffusionPtqRunConfig, logging_level: int = tools.logging.DEBUG
                     save_model=save_model,
                 ),
             )
+    # Optionally quantize VAE (weights-only by default)
+    if getattr(config, "vae", None) is not None and config.vae.is_enabled():
+        if hasattr(pipeline, "vae"):
+            logger.info("* Quantizing VAE module")
+            tools.logging.Formatter.indent_inc()
+            vae_struct = DiffusionModelStruct.construct(pipeline.vae)
+            # Reuse diffusion weight/activation quantizers for VAE if configured
+            if config.vae.enabled_wgts:
+                logger.info("- Quantizing VAE weights")
+                quantize_diffusion_weights(vae_struct, config.vae)
+            if config.vae.enabled_ipts or config.vae.enabled_opts:
+                logger.info("- Quantizing VAE activations")
+                quantize_diffusion_activations(vae_struct, config.vae)
+            tools.logging.Formatter.indent_dec()
     config.eval.gen_root = config.eval.gen_root.format(
         output=config.output.running_dirpath, job=config.output.running_job_dirname
     )

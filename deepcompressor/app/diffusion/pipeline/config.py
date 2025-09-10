@@ -13,6 +13,7 @@ from diffusers.pipelines import (
     FluxFillPipeline,
     SanaPipeline,
 )
+from diffusers.pipelines import QwenImageEditPipeline
 from omniconfig import configclass
 from torch import nn
 from transformers import PreTrainedModel, PreTrainedTokenizer, T5EncoderModel
@@ -198,6 +199,7 @@ class DiffusionPipelineConfig:
             if name in cls._text_extractors and not overwrite:
                 raise ValueError(f"Text extractor {name} already exists.")
             cls._text_extractors[name] = extractor
+        return None
 
     def load_lora(  # noqa: C901
         self, pipeline: DiffusionPipeline, smooth_cache: dict[str, torch.Tensor] | None = None
@@ -344,12 +346,21 @@ class DiffusionPipelineConfig:
                 path = "black-forest-labs/FLUX.1-Fill-dev"
             elif name == "flux.1-schnell":
                 path = "black-forest-labs/FLUX.1-schnell"
+            elif name == "qwen-image-edit":
+                path = "Qwen/Qwen-Image-Edit"
             else:
                 raise ValueError(f"Path for {name} is not specified.")
         if name in ["flux.1-canny-dev", "flux.1-depth-dev"]:
             pipeline = FluxControlPipeline.from_pretrained(path, torch_dtype=dtype)
         elif name == "flux.1-fill-dev":
             pipeline = FluxFillPipeline.from_pretrained(path, torch_dtype=dtype)
+        elif name == "qwen-image-edit":
+            pipeline = QwenImageEditPipeline.from_pretrained(path, torch_dtype=dtype, use_safetensors=True)
+            # Align auxiliary components dtype for stability and lower memory
+            if hasattr(pipeline, "vae"):
+                pipeline.vae.to(dtype)
+            if hasattr(pipeline, "text_encoder"):
+                pipeline.text_encoder.to(dtype)
         elif name.startswith("sana-"):
             if dtype == torch.bfloat16:
                 pipeline = SanaPipeline.from_pretrained(path, variant="bf16", torch_dtype=dtype, use_safetensors=True)
@@ -366,6 +377,18 @@ class DiffusionPipelineConfig:
         if shift_activations:
             shift_input_activations(model)
         return pipeline
+
+    @staticmethod
+    def _extract_qwen_text_encoders(
+        pipeline: DiffusionPipeline, supported: tuple[type[PreTrainedModel], ...]
+    ) -> list[tuple[str, PreTrainedModel, PreTrainedTokenizer]]:
+        encoders: list[tuple[str, PreTrainedModel, PreTrainedTokenizer]] = []
+        if hasattr(pipeline, "text_encoder"):
+            enc = getattr(pipeline, "text_encoder")
+            tok = getattr(pipeline, "tokenizer", None)
+            # Always include Qwen-VL encoder, regardless of `supported` type filtering
+            encoders.append(("text_encoder", enc, tok))
+        return encoders
 
     @staticmethod
     def _default_extract_text_encoders(
@@ -391,3 +414,5 @@ class DiffusionPipelineConfig:
                 if not supported or isinstance(encoder, supported):
                     results.append((key, encoder, tokenizer))
         return results
+
+DiffusionPipelineConfig.register_text_extractor("qwen-image-edit", DiffusionPipelineConfig._extract_qwen_text_encoders)
