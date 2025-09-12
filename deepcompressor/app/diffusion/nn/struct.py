@@ -714,6 +714,18 @@ class DiffusionTransformerBlockStruct(TransformerBlockStruct, DiffusionBlockStru
             ffn, ffn_rname = module.ff, "ff"
             pre_add_ffn_norm, pre_add_ffn_norm_rname = module.norm2_context, "norm2_context"
             add_ffn, add_ffn_rname = module.ff_context, "ff_context"
+        elif _QwenImageTransformerBlock is not None and isinstance(module, _QwenImageTransformerBlock):
+            parallel = False
+            norm_type = add_norm_type = "layer_norm"
+            # Based on the actual model structure: img_norm1 -> attn, img_norm2 -> img_mlp
+            # txt_norm1 -> attn (shared), txt_norm2 -> txt_mlp  
+            pre_attn_norms, pre_attn_norm_rnames = [module.img_norm1], ["img_norm1"]
+            attns, attn_rnames = [module.attn], ["attn"] 
+            pre_attn_add_norms, pre_attn_add_norm_rnames = [module.txt_norm1], ["txt_norm1"]
+            pre_ffn_norm, pre_ffn_norm_rname = module.img_norm2, "img_norm2"
+            ffn, ffn_rname = module.img_mlp, "img_mlp"
+            pre_add_ffn_norm, pre_add_ffn_norm_rname = module.txt_norm2, "txt_norm2"  
+            add_ffn, add_ffn_rname = module.txt_mlp, "txt_mlp"
         else:
             raise NotImplementedError(f"Unsupported module type: {type(module)}")
         return DiffusionTransformerBlockStruct(
