@@ -1,0 +1,58 @@
+pipeline:
+  name: qwen-image-edit
+  path: "/home/adamo/projects/nunchaku/merge_anime_8bit/qwen-image-edit-lightning-anime-merged"
+  dtype: torch.bfloat16
+
+eval:
+  num_steps: 8  # Using Lightning 8-step for faster evaluation
+  guidance_scale: 1.0  # Lightning models work better with lower CFG
+  protocol: flowmatch{num_steps}-g{guidance_scale}
+
+quant:
+  calib:
+    batch_size: 8
+
+  wgts:
+    dtype: sint4
+    group_shapes:
+      - [1, 128, 1, 1, 1]  # Using r128 for better quality
+    calib_range:
+      element_batch_size: 32
+      sample_batch_size: 16
+      element_size: 256
+      sample_size: -1
+    low_rank:
+      rank: 128  # Using r128 rank for better quality
+      sample_batch_size: 16
+      sample_size: -1
+    skips:
+      - embed
+      - transformer_norm
+      - transformer_add_norm
+
+  ipts:
+    dtype: sint4
+    static: false
+    group_shapes:
+      - [1, 128, 1, 1, 1]  # Using r128 for better quality
+    calib_range:
+      element_batch_size: 32
+      sample_batch_size: 16
+      element_size: 256
+      sample_size: -1
+    skips:
+      - embed
+      - transformer_norm
+      - transformer_add_norm
+
+  smooth:
+    proj:
+      alpha: 0.5
+      beta: -2
+      element_batch_size: -1
+      sample_batch_size: 16
+      element_size: -1
+      sample_size: -1
+    attn:
+      sample_batch_size: 16
+      sample_size: -1
