@@ -9,6 +9,8 @@ import torch
 from omniconfig import configclass
 from torch import nn
 from tqdm import tqdm
+from PIL import Image
+import numpy as np
 
 from deepcompressor.app.diffusion.config import DiffusionPtqRunConfig
 from deepcompressor.utils.common import hash_str_to_int, tree_map
@@ -21,6 +23,28 @@ from .utils import CollectHook
 def process(x: torch.Tensor) -> torch.Tensor:
     dtype = x.dtype
     return torch.from_numpy(x.float().numpy()).to(dtype)
+
+
+def create_dummy_image(size=(1104, 832), mode='black'):
+    """Create a simple dummy image for Qwen Image Edit calibration.
+    
+    Args:
+        size (tuple): Image size as (width, height)
+        mode (str): Image mode ('black', 'white', 'noise')
+    
+    Returns:
+        PIL.Image: Dummy image in RGB format
+    """
+    if mode == 'black':
+        return Image.new('RGB', size, color='black')
+    elif mode == 'white':
+        return Image.new('RGB', size, color='white')
+    elif mode == 'noise':
+        # Create random noise image
+        array = np.random.randint(0, 256, (size[1], size[0], 3), dtype=np.uint8)
+        return Image.fromarray(array)
+    else:
+        return Image.new('RGB', size, color='black')
 
 
 def collect(config: DiffusionPtqRunConfig, dataset: datasets.Dataset):
@@ -61,9 +85,10 @@ def collect(config: DiffusionPtqRunConfig, dataset: datasets.Dataset):
         
         # Handle Qwen Image Edit as text-to-image during calibration
         if config.pipeline.name == "qwen-image-edit":
-            # For Qwen Image Edit during calibration, treat it as text-to-image
-            # and skip image inputs to collect text-only calibration data
-            pass
+            # For Qwen Image Edit during calibration, create dummy images
+            # since the pipeline requires an image input even during calibration
+            dummy_images = [create_dummy_image() for _ in range(len(prompts))]
+            pipeline_kwargs["image"] = dummy_images
         elif task in ["canny-to-image", "depth-to-image", "inpainting"]:
             controls = get_control(
                 task,
