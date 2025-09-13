@@ -88,6 +88,9 @@ def collect(config: DiffusionPtqRunConfig, dataset: datasets.Dataset):
             # For Qwen Image Edit during calibration, create dummy images
             # since the pipeline requires an image input even during calibration
             dummy_images = [create_dummy_image() for _ in range(len(prompts))]
+            # Remove any existing image-related parameters to avoid conflicts
+            pipeline_kwargs.pop("image", None)
+            pipeline_kwargs.pop("control_image", None)
             pipeline_kwargs["image"] = dummy_images
         elif task in ["canny-to-image", "depth-to-image", "inpainting"]:
             controls = get_control(
