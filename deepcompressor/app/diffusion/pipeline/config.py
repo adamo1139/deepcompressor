@@ -104,7 +104,7 @@ class DiffusionPipelineConfig:
             self.task = "inpainting"
 
     def build(
-        self, *, dtype: str | torch.dtype | None = None, device: str | torch.device | None = None
+        self, *, dtype: str | torch.dtype | None = None, device: str | torch.device | None = None, for_calibration: bool = False
     ) -> DiffusionPipeline:
         """Build the diffusion pipeline.
 
@@ -113,6 +113,8 @@ class DiffusionPipelineConfig:
                 The data type of the pipeline.
             device (`str` or `torch.device`, *optional*):
                 The device of the pipeline.
+            for_calibration (`bool`, *optional*, defaults to `False`):
+                Whether the pipeline is being built for calibration only.
 
         Returns:
             `DiffusionPipeline`:
@@ -124,7 +126,7 @@ class DiffusionPipelineConfig:
             device = self.device
         _factory = self._pipeline_factories.get(self.name, self._default_build)
         return _factory(
-            name=self.name, path=self.path, dtype=dtype, device=device, shift_activations=self.shift_activations
+            name=self.name, path=self.path, dtype=dtype, device=device, shift_activations=self.shift_activations, for_calibration=for_calibration
         )
 
     def extract_text_encoders(
@@ -327,7 +329,7 @@ class DiffusionPipelineConfig:
 
     @staticmethod
     def _default_build(
-        name: str, path: str, dtype: str | torch.dtype, device: str | torch.device, shift_activations: bool
+        name: str, path: str, dtype: str | torch.dtype, device: str | torch.device, shift_activations: bool, for_calibration: bool = False
     ) -> DiffusionPipeline:
         if not path:
             if name == "sdxl":

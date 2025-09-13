@@ -30,7 +30,11 @@ def collect(config: DiffusionPtqRunConfig, dataset: datasets.Dataset):
     os.makedirs(caches_dirpath, exist_ok=True)
     caches = []
 
-    pipeline = config.pipeline.build()
+    # Build pipeline with for_calibration=True for Qwen Image Edit
+    if config.pipeline.name == "qwen-image-edit":
+        pipeline = config.pipeline.build(for_calibration=True)
+    else:
+        pipeline = config.pipeline.build()
     model = pipeline.unet if hasattr(pipeline, "unet") else pipeline.transformer
     assert isinstance(model, nn.Module)
     model.register_forward_hook(CollectHook(caches=caches), with_kwargs=True)
@@ -54,13 +58,19 @@ def collect(config: DiffusionPtqRunConfig, dataset: datasets.Dataset):
 
         task = config.pipeline.task
         control_root = config.eval.control_root
-        if task in ["canny-to-image", "depth-to-image", "inpainting"]:
+        
+        # Handle Qwen Image Edit as text-to-image during calibration
+        if config.pipeline.name == "qwen-image-edit":
+            # For Qwen Image Edit during calibration, treat it as text-to-image
+            # and skip image inputs to collect text-only calibration data
+            pass
+        elif task in ["canny-to-image", "depth-to-image", "inpainting"]:
             controls = get_control(
                 task,
                 batch["image"],
                 names=batch["filename"],
                 data_root=os.path.join(
-                    control_root, collect_config.dataset_name, f"{dataset.config_name}-{config.eval.num_samples}"
+                    control_root, config.collect.dataset_name, f"{dataset.config_name}-{config.eval.num_samples}"
                 ),
             )
             if task == "inpainting":
